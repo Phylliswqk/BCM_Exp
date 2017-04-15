@@ -1,3 +1,99 @@
+/**
+ *
+ * */
+
+//配置参数,修改该变量修改配置
+var conf_densityList = [2, 4, 8, 12, 16, 24];//密度列表
+var conf_regionList = [1.05,1.1,1.2, 1.4,1.8];//数据波动列表
+var conf_regionListX = [];//随机数的范围最大值,数据波动
+var conf_repeat = 2; //block重复次数
+
+//全局变量
+var totalTrialCountGlobal = 0;
+var totalTrialCountLocal = 0;
+var trialCountGlobal = 0;//Global实验的次数
+var trialCountLocal = 0;//Local实验的次数
+//
+var densityOrder = [];//密度列表洗牌后的顺序
+var regionOrder = [];//数据波动情况洗牌后的顺序
+var regionXOrder = [];//
+var mydata1;//记录时间函数
+var starttime;//实验开始时间
+var endtime;//实验结束时间
+
+/**
+ * 初始化实验参数
+ */
+function initExp1(){
+    //JSON.stringify
+    for(var i = 0; i < conf_regionList.length; i ++){
+        conf_regionListX[i] = 100.0 / conf_regionList[i];
+    }
+    totalTrialCountGlobal = conf_densityList.length*conf_repeat*conf_regionList.length;
+    totalTrialCountLocal = conf_densityList.length*conf_repeat*conf_regionList.length;
+    console.log("本次实验需要:"+(totalTrialCountGlobal+totalTrialCountLocal)+"次");
+    //显示时间
+    mydata1=new Date();
+    starttime = mydata1.getTime();
+    console.error("实验开始时间为：%d\n",starttime);
+
+    //洗牌
+    //https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+    //https://www.zhihu.com/question/32303195
+    var tempArray = [];
+    for (var i = 0, len = conf_densityList.length; i < len; i++) {
+        tempArray[i] = conf_densityList[i];
+    }
+    for (var i = 0, len = tempArray.length; i < len; i++) {
+        var j = Math.floor(Math.random() * tempArray.length);
+        densityOrder[i] = tempArray[j];
+        tempArray.splice(j, 1);
+    }
+
+    var tempArray2 = [];
+    for (var i = 0, len = conf_regionList.length; i < len; i++) {
+        tempArray[i] = conf_regionList[i];
+        tempArray2[i] = conf_regionListX[i];
+    }
+    for (var i = 0, len = tempArray.length; i < len; i++) {
+        var j = Math.floor(Math.random() * tempArray.length);
+        regionOrder[i] = tempArray[j];
+        regionXOrder[i] = tempArray2[j];
+        tempArray.splice(j, 1);
+        tempArray2.splice(j,1);
+    }
+
+    nextTrial();
+}
+
+/**
+ * TODO 开始下一个实验
+ */
+function nextTrial(){
+    if(trialCountGlobal ++ < totalTrialCountGlobal){
+        //trialCountGlobal ++;
+        var densityIndex = parseInt( (trialCountGlobal - 1 ) % (conf_densityList.length * conf_regionList.length) / regionOrder.length );
+        var regionIndex =  (trialCountGlobal - 1) % (conf_densityList.length * conf_regionList.length) % regionOrder.length;
+        console.log("densityIndexGlobal:regionIndex:"+densityIndex+":"+regionIndex);
+        createExpMap(true, densityOrder[densityIndex], regionOrder[regionIndex], regionXOrder[regionIndex]);
+    }else if(trialCountLocal ++ < (totalTrialCountLocal - 1)){
+        $("#title").text("请找出框出区域的最大值:");
+        var densityIndex = parseInt( (trialCountLocal - 1 ) % (conf_densityList.length * conf_regionList.length) / regionOrder.length );
+        var regionIndex =  (trialCountLocal - 1) % (conf_densityList.length * conf_regionList.length) % regionOrder.length;
+        console.log("densityIndexLocal:regionIndex:"+densityIndex+":"+regionIndex);
+        createExpMap(false, densityOrder[densityIndex], regionOrder[regionIndex], regionXOrder[regionIndex]);
+    }else{
+        //SimpleDateFormat sdf = new SimpleDateFormat("HH;mm;ss;SS");
+       // sdf.format(new Date());
+        mydata1=new Date();
+        endtime= mydata1.getTime();
+        var mss=endtime-starttime;
+        var minute1 = (mss % (1000 * 60 * 60)) / (1000 * 60);
+        var second1 = (mss % (1000 * 60)) / 1000;
+        console.error("实验结束时间为：%d\n,总时间为：%d毫秒，约为%f分钟",endtime,mss,minute1);
+        console.log("实验结束")
+    }
+}
 
 
 /**
@@ -6,30 +102,23 @@
  *  true:没有边框,全局测试
  *  false:有边框,局部测试
  */
-function createExpMap(isGlobal) {
+function createExpMap(isGlobal, density, region, regionX) {
+    console.log(isGlobal + ":"+density+":"+region+":"+regionX);
+    $("#choroplethMap").empty();
 
     /**
      * y 取1.05,1.1,1.2,1.4,1.8
      * x 1- 95,90,83,71,55
      */
-    var dataChangeIndex = 3;//控制数据波动的参数,0-4 5类
-    var yList = [1.05,1.1,1.2,1.4,1.8];
-    var xList = [95, 90, 83, 71, 55];
-    var y2 = yList[dataChangeIndex];//
+    //var y2 = conf_regionList[region];//
     function x() {
-        return Math.random() * xList[dataChangeIndex];
+        return Math.random() * regionX;
     }
 
-    var densityIndex = 1;
-    var densityList = [2, 4, 8, 12, 16, 24];
-    var density = densityList[densityIndex];//2,4,8,12,16,24
     var indexOfProv = parseInt(Math.random()*32);//全局最大所在的省份
-
-
 
     var width = 960,
         height = 700;
-    //var colors = ["#FF0000", "#FFFF00"];
     var colors = ['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#bd0026','#800026'];
     var colorScale = d3.scale.linear()
         .domain([0,12,24,36,48,60,72,84,100]).range(colors);
@@ -46,7 +135,7 @@ function createExpMap(isGlobal) {
     d3.json("data/china_provinces_remove2.json",
         function (data) {
             var provinces = data.features;
-            var sel = d3.select("body").append("svg")
+            var sel = d3.select("#choroplethMap").append("svg")
                 .attr("width", width)
                 .attr("height", height);
 
@@ -68,7 +157,7 @@ function createExpMap(isGlobal) {
             var pattern = upd.enter()
                 .append("pattern")
                 .attr("id", function (d) {
-                    console.log(d.id);
+                    //console.log(d.id);
                     return "pat" + d.id;
                 })
                 .attr("patternUnits", "objectBoundingBox")
@@ -162,7 +251,7 @@ function createExpMap(isGlobal) {
             }
 
             {//处理并生成并绘制最大值
-                var temp = maxNormalValue * y2;//+ y;
+                var temp = maxNormalValue * region;//+ y;
                 var bbox = Snap.path.getBBox(path(provinces[indexOfProv]));
                 var tempBarG = d3.selectAll("#tempBar" + provinces[indexOfProv].id);
                 tempBarG.append("rect")
@@ -173,7 +262,7 @@ function createExpMap(isGlobal) {
                     .attr("height", bbox.height)
                     .attr("fill", colorScale(temp))//填充颜色
                     .attr("clip-path", "url(#clippath" + provinces[indexOfProv].id + ")");
-                console.log("测试数据位置:"+indexOfProv+":"+indexMax+":"+temp);
+                console.log("测试数据位置:"+provinces[indexOfProv].id+":"+indexMax+":数值:"+temp+":length"+density+":"+region);
                 sel.append('path')
                     .attr('d', path(provinces[indexOfProv]))
                     .attr("fill", "url(#" + "pat" + provinces[indexOfProv].id + ")")
@@ -192,7 +281,7 @@ function createExpMap(isGlobal) {
                         .attr("stroke-width", 2)
                         .attr("fill", colorScale(temp))//填充颜色
                         .attr("fill-opacity", 0)
-                        .attr("transform", "translate(" + bbox.x + "," + bbox.y + ")");;
+                        .attr("transform", "translate(" + bbox.x + "," + bbox.y + ")");
                 }
             }
 
@@ -228,7 +317,7 @@ function createExpMap(isGlobal) {
                             //});
                         })
                         .on("mousedown", function () {
-                            console.log("mouse down");
+                            //console.log("mouse down");
                             var filterId = function(ids){
                                 return ids.substr(19);
                             };
@@ -243,7 +332,10 @@ function createExpMap(isGlobal) {
                             var clip = this.getAttribute("clip-path");
                             var selectedProv = clip.substring(13,clip.length-1);
                             //在这里记录了实验者点击的省份和index
-                            console.log("selected province:"+ selectedProv+":"+filterId(this.id));
+                            console.log("选中位置:"+ selectedProv+":"+filterId(this.id));
+                            console.log("------");
+                            //TODO 记录结果
+                            nextTrial();
 
                         })
                         .on("mouseover", function () {
